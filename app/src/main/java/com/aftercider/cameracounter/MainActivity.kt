@@ -2,6 +2,7 @@ package com.aftercider.cameracounter
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -12,12 +13,17 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.aftercider.cameracounter.databinding.ActivityMainBinding
+import lecho.lib.hellocharts.model.Line
+import lecho.lib.hellocharts.model.LineChartData
+import lecho.lib.hellocharts.model.PointValue
+import lecho.lib.hellocharts.view.LineChartView
 import java.io.File
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
 
 typealias LumaListener = (luma: Double) -> Unit
 
@@ -27,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var outputDirectory: File
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var binding: ActivityMainBinding
+    val pointValues: MutableList<PointValue> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +56,19 @@ class MainActivity : AppCompatActivity() {
         outputDirectory = getOutputDirectory()
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        //In most cased you can call data model methods in builder-pattern-like manner.
+        val line: Line = Line(pointValues).setColor(Color.BLUE).setCubic(true)
+        val lines: MutableList<Line> = ArrayList<Line>()
+        line.setHasPoints(false)
+        line.strokeWidth = 1
+        lines.add(line)
+
+        val data = LineChartData()
+        data.lines = lines
+
+        val chart = binding.chart
+        chart.lineChartData = data
     }
 
     private fun takePhoto() {
@@ -105,8 +125,13 @@ class MainActivity : AppCompatActivity() {
                 .build()
                 .also {
                     it.setAnalyzer(cameraExecutor, LuminosityAnalyzer { luma ->
-                        Log.d(TAG, "Average luminosity: $luma")
+                        val values = binding.chart.lineChartData.lines[0].values
+                        values.add(PointValue(values.size.toFloat(), luma.toFloat()))
+                        binding.chart.lineChartData.lines[0].values = values
+                        Log.d(TAG, "Average luminosity: $luma ${values.size}")
+                        binding.chart.lineChartData = binding.chart.lineChartData
                     })
+
                 }
 
             // Select back camera as a default
